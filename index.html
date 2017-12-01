@@ -1,0 +1,113 @@
+<html>
+<head>
+    <title>ESC Monitoring System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.6/angular.min.js"></script>
+    <script src="app/app.js"></script>
+    <script src="scripts/ui-bootstrap-tpls-2.5.0.min.js"></script>
+    <script src="scripts/angular-ui-notification.min.js"></script>
+    <link rel="stylesheet" href="scripts/angular-ui-notification.min.css">
+
+</head>
+<body ng-app="escApp" ng-controller="HomeController">
+
+<div class="container-fluid">
+    <div class="page-header">
+        <img src="images/logo.png" align="center" height="47" width="244"/>
+        <h2 style="display: inline;vertical-align: middle">ESC Monitoring System</h2>
+    </div>
+    <div class="row">
+        <div class="col col-md-12">
+            <table class="table table-condensed" style="margin-top:20px">
+                <thead>
+                <tr>
+                    <th>ESC Name</th>
+                    <th>Local IP</th>
+                    <th>Remote IP</th>
+                    <th>Bytes Transmitted</th>
+                    <th>Bytes Received</th>
+                    <th>Heartbeat Count</th>
+                    <th>Connected Since</th>
+                    <th>Comm Status</th>
+                    <th>Software Ver.</th>
+                    <th>Firmware Ver.</th>
+                    <th>Upgrade Software</th>
+                    <th>Enable/Disable</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr ng-repeat="esc in escInfo">
+                    <td>{{esc.esc_name}}</td>
+                    <td>{{esc.LocalIp}}</td>
+                    <td>{{esc.RemoteIp}}</td>
+                    <td>{{esc.TxBytes}}</td>
+                    <td>{{esc.RxBytes}}</td>
+                    <td>{{esc.HeartBeatCount}}</td>
+                    <td>{{esc.lastConnection}}</td>
+                    <td ng-if="esc.CommStatus==='DOWN'">
+                        <img src="images/red.png" height="32" width="32"/></td>
+                    <td ng-if="esc.CommStatus==='UP'">
+                        <img src="images/green.png" height="32" width="32"/></td>
+                    <td>{{esc.softwareVersion}}</td>
+                    <td>{{esc.firmwareVersion}}</td>
+
+                    <td>
+                        <input ng-if="!upgradeCheck(esc.esc_name)" type="button" ng-click="update(esc.esc_name, esc.softwareVersion)"
+                               class="btn btn-primary"
+                               value="Upgrade"/>
+                        <img ng-if="upgradeCheck(esc.esc_name)" style="display:block; margin:0 auto;" src="images/loader.gif">
+                    </td>
+                    <td>
+                        <div class="dropdown">
+                            <button ng-disabled="upgradeCheck(esc.esc_name)" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+                                ESC State
+                                <span class="caret"></span></button>
+                            <ul class="dropdown-menu">
+                                <li><a ng-click="enableEsc(esc.esc_name)" href="#">Enable</a></li>
+                                <li><a ng-click="disableEsc(esc.esc_name)" href="#">Disable</a></li>
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col col-md-12">
+            <uib-tabset active="active">
+                <!--<uib-tab index="0" heading="Static title">Static content</uib-tab>-->
+                <uib-tab index="$index + 1" ng-repeat="tab in logging" heading="{{tab.escName}}" disable="tab.disabled">
+                    <div style="margin-top: 10px;line-height:200%">
+                    {{tab.logs}}
+                    </div>
+                </uib-tab>
+
+            </uib-tabset>
+
+        </div>
+    </div>
+</div>
+<!--<script type="text/ng-template" id="upgradeSoftware.html">-->
+<!--<div class="modal-header">-->
+<!--<h3 class="modal-title" id="modal-title">Upgrade Software</h3>-->
+<!--</div>-->
+<!--<div class="modal-body" id="modal-body">-->
+<!--<label for="sel1">Select Version for <b>{{$ctrl.escId}}</b>:</label>-->
+<!--<select id="sel1" class="form-control" ng-options="option for option in prop.values"-->
+<!--name="repeatSelect"-->
+<!--ng-model="prop.value">-->
+<!--</select>-->
+<!--</div>-->
+<!--<div class="modal-footer">-->
+<!--<button class="btn btn-success" type="button" ng-click="$ctrl.ok()">Upgrade</button>-->
+<!--<button class="btn btn-danger" type="button" ng-click="$ctrl.cancel()">Cancel</button>-->
+<!--</div>-->
+<!--</script>-->
+</body>
+</html>

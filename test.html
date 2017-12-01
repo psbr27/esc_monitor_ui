@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Syslog viewer</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <style type="text/css">
+        * {
+            margin:0;
+            padding:0;
+            border:0;
+        }
+
+        body {
+            font-family:monospace;
+            font-size:10px;
+        }
+
+        table.log {
+            border-collapse:collapse;
+            border: 1px solid #a0a0a0;
+            width:100%;
+        }
+
+        table.log td, table.log th {
+            position:relative;
+            border-collapse:collapse;
+            border: 1px solid #a0a0a0;
+        }
+
+        select,input {
+            width:100%;
+        }
+
+        thead {
+            background-color:#e0e0e0;
+        }
+
+        button {
+            width:48px;
+            border:1px outset;
+        }
+
+        button.pause {
+            border:1px inset;
+        }
+    </style>
+</head>
+<body>
+<table class="log">
+    <thead>
+    <tr>
+        <th style="width:150px" colspan="2">Timestamp</th>
+        <th style="width:150px">Facility</th>
+        <th style="width:150px">Severity</th>
+        <th style="width:150px">Hostname</th>
+        <th style="width:150px">Program/Tag</th>
+        <th>Message</th>
+    </tr>
+    <tr>
+        <th style="width:50px"><button id="pause">Pause</button></th>
+        <th style="width:100px">Filter:</th>
+        <td><select id="filterfacility"><option value="-1"></option></select></td>
+        <td><select id="filterseverity"><option value="-1"></option></select></td>
+        <td><input type="text" id="filterhostname" placeholder="Filter hostname" /></td>
+        <td><input type="text" id="filtertag" placeholder="Filter program/tag" /></td>
+        <td><input type="text" id="filtermessage" placeholder="Filter message" /></td>
+    </tr>
+    </thead>
+    <tbody id="messagecontainer">
+    </tbody>
+</table>
+<script src="/socket.io/socket.io.js"></script>
+<script type="text/javascript">
+    var facilities = {
+        0: "Kernel",
+        1: "User",
+        2: "Mail",
+        3: "Daemon",
+        4: "Auth",
+        5: "Internal",
+        6: "Printer",
+        7: "News",
+        8: "UUCP",
+        9: "Cron",
+        10: "Security/Auth",
+        11: "FTP",
+        12: "NTP",
+        14: "Audit",
+        15: "Alert",
+        16: "Local0",
+        17: "Local1",
+        18: "Local2",
+        19: "Local3",
+        20: "Local4",
+        21: "Local5",
+        22: "Local6",
+        23: "Local7"
+    }
+    var severities = {
+        0: "Emerg",
+        1: "Alert",
+        2: "Crit",
+        3: "Error",
+        4: "Warning",
+        5: "Notice",
+        6: "Info",
+        7: "Debug"
+    }
+    var filters = {
+        facility: -1,
+        severity: -1,
+        hostname: '',
+        tag: '',
+        message: ''
+    }
+    var pause = false
+    var pauseButton = document.getElementById('pause')
+    var messagecontainer = document.getElementById('messagecontainer')
+    var filterelements = {
+        facility: document.getElementById('filterfacility'),
+        severity: document.getElementById('filterseverity'),
+        hostname: document.getElementById('filterhostname'),
+        tag: document.getElementById('filtertag'),
+        message: document.getElementById('filtermessage')
+    }
+    var updateFilters = function() {
+        for (var filter in filters) {
+            if (filters.hasOwnProperty(filter)) {
+                if (filterelements[filter].tagName.toLowerCase() == 'input') {
+                    filters[filter] = filterelements[filter].value
+                } else if (filterelements[filter].tagName.toLowerCase() == 'select') {
+                    filters[filter] = filterelements[filter].options[filterelements[filter].selectedIndex].value;
+                }
+                try {
+                    filterelements[filter].blur()
+                } catch (err) { }
+            }
+        }
+    }
+    var updateFiltersIfEnter = function(e) {
+        if (!e) {
+            e = window.event
+        }
+        if (e.keyCode == 13) {
+            updateFilters()
+        }
+    }
+    var appendMessage = function (message) {
+        var tr = document.createElement('tr')
+        var td, text
+
+        td = document.createElement('td')
+        td.colSpan=2
+        text = document.createTextNode(message.timestamp.month + ' ' + message.timestamp.day +
+            ' ' + message.timestamp.hour + ':' + message.timestamp.minute + ':' +
+            message.timestamp.second)
+        td.appendChild(text)
+        tr.appendChild(td)
+
+        td = document.createElement('td')
+        text = document.createTextNode(facilities[message.pri.facility])
+        td.appendChild(text)
+        tr.appendChild(td)
+
+        td = document.createElement('td')
+        text = document.createTextNode(severities[message.pri.severity])
+        td.appendChild(text)
+        tr.appendChild(td)
+
+        td = document.createElement('td')
+        text = document.createTextNode(message.hostname)
+        td.appendChild(text)
+        tr.appendChild(td)
+
+        td = document.createElement('td')
+        text = document.createTextNode(message.tag)
+        td.appendChild(text)
+        tr.appendChild(td)
+
+        td = document.createElement('td')
+        text = document.createTextNode(message.message)
+        td.appendChild(text)
+        tr.appendChild(td)
+
+        messagecontainer.appendChild(tr)
+    }
+    var filterMessage = function (message) {
+        if (filters.facility > -1) {
+            if (message.pri.facility != filters.facility) {
+                return false;
+            }
+        }
+        if (filters.severity > -1) {
+            if (message.pri.severity != filters.severity) {
+                return false;
+            }
+        }
+        if (filters.hostname != '') {
+            if (message.hostname.indexOf(filters.hostname) === -1) {
+                return false;
+            }
+        }
+        if (filters.tag != '') {
+            if (message.tag.indexOf(filters.tag) === -1) {
+                return false;
+            }
+        }
+        if (filters.message != '') {
+            if (message.message.indexOf(filters.message) === -1) {
+                return false;
+            }
+        }
+        if (pause) {
+            return false
+        }
+        return true;
+    }
+    var togglePause = function() {
+        if (pause) {
+            pauseButton.className = ''
+            pause = false
+        } else {
+            pauseButton.className = 'pause'
+            pause = true
+        }
+    }
+    for (var i in facilities) {
+        if (facilities.hasOwnProperty(i)) {
+            var option = document.createElement('option')
+            option.text = facilities[i]
+            option.value = i
+            filterelements.facility.appendChild(option)
+        }
+    }
+    for (var i in severities) {
+        if (severities.hasOwnProperty(i)) {
+            var option = document.createElement('option')
+            option.text = severities[i]
+            option.value = i
+            filterelements.severity.appendChild(option)
+        }
+    }
+
+    updateFilters()
+
+    for (var fe in filterelements) {
+        if (filterelements.hasOwnProperty(fe)) {
+            filterelements[fe].addEventListener('change', updateFilters, false)
+            if (filterelements[fe].tagName == 'input') {
+                filterelements[fe].addEventListener('keydown', updateFiltersIfEnter,
+                    false)
+            }
+        }
+        window.addEventListener('blur', updateFilters, true)
+    }
+
+    pauseButton.addEventListener('click', togglePause, false)
+    var socket = io.connect('/');
+    socket.on('log', function (data) {
+        if (filterMessage(data)) {
+            appendMessage(data)
+        }
+    })
+</script>
+</body>
+</html>
